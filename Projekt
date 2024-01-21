@@ -1,0 +1,227 @@
+using System;
+using System.Collections.Generic;
+using System.Data.Entity;
+using System.Linq;
+
+public class User
+{
+    public int Id { get; set; }
+    public string Username { get; set; }
+    public string Password { get; set; }
+}
+
+public class Position
+{
+    public int Id { get; set; }
+    public string Name { get; set; }
+}
+
+public class Vehicle
+{
+    public int Id { get; set; }
+    public string RegistrationNumber { get; set; }
+    public string MechanicUsername { get; set; }
+}
+
+public class AppDbContext : DbContext
+{
+    public DbSet<User> Users { get; set; }
+    public DbSet<Position> Positions { get; set; }
+    public DbSet<Vehicle> Vehicles { get; set; }
+}
+
+class Program
+{
+    static Dictionary<string, string> users = new Dictionary<string, string>();
+    static List<string> positions = new List<string> { "Kierownik Serwisu", "Doradca Serwisowy", "Mechanik" };
+    static Dictionary<string, List<string>> schedule = new Dictionary<string, List<string>>();
+
+    static void Main()
+    {
+        Database.SetInitializer(new DropCreateDatabaseIfModelChanges<AppDbContext>());
+        using (var context = new AppDbContext())
+        {
+            context.Database.Initialize(true);
+        }
+
+        Console.WriteLine("Witaj w aplikacji Samochodzik!");
+
+        while (true)
+        {
+            Console.WriteLine("1. Zaloguj się");
+            Console.WriteLine("2. Zarejestruj nowego użytkownika");
+            Console.WriteLine("3. Wyjście");
+            Console.Write("Wybierz opcję: ");
+
+            string choice = Console.ReadLine();
+
+            switch (choice)
+            {
+                case "1":
+                    Login();
+                    break;
+                case "2":
+                    Register();
+                    break;
+                case "3":
+                    Environment.Exit(0);
+                    break;
+                default:
+                    Console.WriteLine("Nieprawidłowy wybór. Spróbuj ponownie.");
+                    break;
+            }
+        }
+    }
+
+    static void Login()
+    {
+        Console.Write("Podaj login: ");
+        string username = Console.ReadLine();
+        Console.Write("Podaj hasło: ");
+        string password = Console.ReadLine();
+
+        using (var context = new AppDbContext())
+        {
+            var user = context.Users.FirstOrDefault(u => u.Username == username && u.Password == password);
+            if (user != null)
+            {
+                Console.WriteLine("Zalogowano pomyślnie!");
+                if (username == "admin")
+                {
+                    AdminMenu();
+                }
+                else
+                {
+                    UserMenu(username);
+                }
+            }
+            else
+            {
+                Console.WriteLine("Nieprawidłowy login lub hasło.");
+            }
+        }
+    }
+
+    static void Register()
+    {
+        Console.Write("Podaj nowy login: ");
+        string newUsername = Console.ReadLine();
+        Console.Write("Podaj hasło: ");
+        string newPassword = Console.ReadLine();
+
+        using (var context = new AppDbContext())
+        {
+            if (!context.Users.Any(u => u.Username == newUsername))
+            {
+                context.Users.Add(new User { Username = newUsername, Password = newPassword });
+                context.SaveChanges();
+                Console.WriteLine("Użytkownik zarejestrowany pomyślnie!");
+            }
+            else
+            {
+                Console.WriteLine("Użytkownik o podanym loginie już istnieje.");
+            }
+        }
+    }
+
+    static void AdminMenu()
+    {
+        while (true)
+        {
+            Console.WriteLine("1. Dodaj nowego użytkownika");
+            Console.WriteLine("2. Dodaj nowe stanowisko");
+            Console.WriteLine("3. Wyloguj");
+            Console.Write("Wybierz opcję: ");
+
+            string adminChoice = Console.ReadLine();
+
+            switch (adminChoice)
+            {
+                case "1":
+                    Register();
+                    break;
+                case "2":
+                    AddPosition();
+                    break;
+                case "3":
+                    return;
+                default:
+                    Console.WriteLine("Nieprawidłowy wybór. Spróbuj ponownie.");
+                    break;
+            }
+        }
+    }
+
+    static void AddPosition()
+    {
+        Console.WriteLine("Dostępne stanowiska:");
+        using (var context = new AppDbContext())
+        {
+            var availablePositions = context.Positions.ToList();
+            foreach (var position in availablePositions)
+            {
+                Console.WriteLine($"{position.Id}. {position.Name}");
+            }
+        }
+
+        Console.Write("Podaj numer stanowiska: ");
+        if (int.TryParse(Console.ReadLine(), out int positionId))
+        {
+            using (var context = new AppDbContext())
+            {
+                var selectedPosition = context.Positions.Find(positionId);
+                if (selectedPosition != null)
+                {
+                    positions.Add(selectedPosition.Name);
+                    Console.WriteLine("Nowe stanowisko dodane pomyślnie!");
+                }
+                else
+                {
+                    Console.WriteLine("Nieprawidłowy numer stanowiska.");
+                }
+            }
+        }
+        else
+        {
+            Console.WriteLine("Nieprawidłowy numer stanowiska.");
+        }
+    }
+
+    static void UserMenu(string username)
+    {
+        while (true)
+        {
+            Console.WriteLine("1. Przyjmij pojazd do warsztatu");
+            Console.WriteLine("2. Wyloguj");
+            Console.Write("Wybierz opcję: ");
+
+            string userChoice = Console.ReadLine();
+
+            switch (userChoice)
+            {
+                case "1":
+                    AcceptVehicle(username);
+                    break;
+                case "2":
+                    return;
+                default:
+                    Console.WriteLine("Nieprawidłowy wybór. Spróbuj ponownie.");
+                    break;
+            }
+        }
+    }
+
+    static void AcceptVehicle(string mechanic)
+    {
+        Console.Write("Podaj numer rejestracyjny pojazdu: ");
+        string vehicleNumber = Console.ReadLine();
+
+        using (var context = new AppDbContext())
+        {
+            context.Vehicles.Add(new Vehicle { RegistrationNumber = vehicleNumber, MechanicUsername = mechanic });
+            context.SaveChanges();
+        }
+
+        Console.WriteLine($"Pojazd {vehicleNumber} przyjęty do warsztatu.");
+    }
+}
